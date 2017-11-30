@@ -19,6 +19,19 @@ typedef struct {
 #define NUMBER_OF_SINGLE 0
 #define NUMBER_OF_RGB 1
 
+/* Important note!
+ *  NEOPIXELS:
+ *  You cannot use strip.show() inside light_update, since it is inside
+ *  an interrupt handler. Instead, make a variable eg:
+ *   volatile bool needs_update = false;
+ *  When you want to show your lights, set it to true. (eg inside light_update)
+ *  Then, inside loop():
+ *   if(needs_update) {
+ *     strip.show();
+ *     needs_update = false;
+ *   }
+ */
+
 void light_update(SingleLED* single_leds, RGBLed* rgb_leds) {
   for(int i = 0; i < NUMBER_OF_SINGLE; i++) {
     // YOUR CODE HERE
@@ -93,7 +106,7 @@ class HIDLED_ : public PluggableUSBModule {
       HIDDescriptor hidInterface = {
         D_INTERFACE(pluggedInterface, 1, USB_DEVICE_CLASS_HUMAN_INTERFACE, HID_SUBCLASS_NONE, HID_PROTOCOL_NONE),
         D_HIDREPORT(sizeof(_hidReportLEDs)),
-        D_ENDPOINT(USB_ENDPOINT_IN(pluggedEndpoint), USB_ENDPOINT_TYPE_INTERRUPT, USB_EP_SIZE, 0x01)
+        D_ENDPOINT(USB_ENDPOINT_IN(pluggedEndpoint), USB_ENDPOINT_TYPE_INTERRUPT, USB_EP_SIZE, 16)
       };
       return USB_SendControl(0, &hidInterface, sizeof(hidInterface));
     }
