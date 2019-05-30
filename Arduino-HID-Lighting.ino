@@ -20,16 +20,12 @@ typedef struct {
 #define NUMBER_OF_RGB 1
 
 /* Important note!
- *  NEOPIXELS:
- *  You cannot use strip.show() inside light_update, since it is inside
- *  an interrupt handler. Instead, make a variable eg:
- *   volatile bool needs_update = false;
- *  When you want to show your lights, set it to true. (eg inside light_update)
- *  Then, inside loop():
- *   if(needs_update) {
- *     strip.show();
- *     needs_update = false;
- *   }
+ *  light_update works inside an interrupt handler. If the code inside here
+ *  takes more than about 1ms, the USB stack will start breaking. Delay functions
+ *  will also not work. Do not write out to Serial, neopixels, SPI etc. Just
+ *  copy the data to a good place and then send it out in loop()
+ *
+ *  Check the "examples" folder for how to do Neopixels without breaking.
  */
 
 void light_update(SingleLED* single_leds, RGBLed* rgb_leds) {
@@ -94,7 +90,7 @@ static const uint8_t PROGMEM _hidReportLEDs[] = {
 class HIDLED_ : public PluggableUSBModule {
 
   uint8_t epType[1];
-  
+
   public:
     HIDLED_(void) : PluggableUSBModule(1, 1, epType) {
       epType[0] = EP_TYPE_INTERRUPT_IN;
@@ -110,33 +106,33 @@ class HIDLED_ : public PluggableUSBModule {
       };
       return USB_SendControl(0, &hidInterface, sizeof(hidInterface));
     }
-    
+
     int getDescriptor(USBSetup& setup)
     {
       // Check if this is a HID Class Descriptor request
       if (setup.bmRequestType != REQUEST_DEVICETOHOST_STANDARD_INTERFACE) { return 0; }
       if (setup.wValueH != HID_REPORT_DESCRIPTOR_TYPE) { return 0; }
-    
+
       // In a HID Class Descriptor wIndex contains the interface number
       if (setup.wIndex != pluggedInterface) { return 0; }
-    
+
       return USB_SendControl(TRANSFER_PGM, _hidReportLEDs, sizeof(_hidReportLEDs));
     }
-    
+
     bool setup(USBSetup& setup)
     {
       if (pluggedInterface != setup.wIndex) {
         return false;
       }
-    
+
       uint8_t request = setup.bRequest;
       uint8_t requestType = setup.bmRequestType;
-    
+
       if (requestType == REQUEST_DEVICETOHOST_CLASS_INTERFACE)
       {
         return true;
       }
-    
+
       if (requestType == REQUEST_HOSTTODEVICE_CLASS_INTERFACE) {
         if (request == HID_SET_REPORT) {
           if(setup.wValueH == HID_REPORT_TYPE_OUTPUT && setup.wLength == NUMBER_OF_LIGHTS){
@@ -146,7 +142,7 @@ class HIDLED_ : public PluggableUSBModule {
           }
         }
       }
-    
+
       return false;
     }
 };
